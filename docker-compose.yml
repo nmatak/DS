@@ -1,0 +1,27 @@
+version: '3'
+services:
+  joke:
+    build: ./joke
+    ports:
+      - "3000:3000"
+    depends_on:
+      - mysql
+  mysql:
+    image: mysql:latest
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: jokesdb
+    volumes:
+      - mysql-data:/var/lib/mysql
+  etl:
+    build: ./etl
+    depends_on:
+      - rabbitmq
+  rabbitmq:
+    image: rabbitmq:latest
+    restart: always
+    ports:
+      - "5672:5672"
+volumes:
+  mysql-data:
