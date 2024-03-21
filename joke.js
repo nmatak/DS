@@ -1,99 +1,103 @@
-const express = require('express')
-const app = express()
-const mysql = require('mysql2')
-const fs = require('fs').promises
-const port = 3000
-const path = require ('path');
-require('dotenv').config()
+const express = require("express");
+const app = express();
+const mysql = require("mysql2");
+const fs = require("fs").promises;
+const port = 3000;
+const path = require("path");
+const cors = require("cors");
+require("dotenv").config();
 
 // Point to static pages
-app.use(express.static(path.join(__dirname,'public/html')));
-app.use(express.static(path.join(__dirname,'public/css')));
-app.use(express.static(path.join(__dirname,'public/js')));
+app.use(express.static(path.join(__dirname, "public/html")));
+app.use(express.static(path.join(__dirname, "public/css")));
+app.use(express.static(path.join(__dirname, "public/js")));
 
-const HOST = process.env.HOST
-const USER = process.env.MYSQL_USER
-const PASSWORD = process.env.MYSQL_PASSWORD
-const DATABASE = process.env.MYSQL_DATABASE
+const HOST = "localhost";
+const USER = "root";
+const PASSWORD = "root";
+const DATABASE = "jokesdb";
 
 let conStr = {
-    host: HOST,
-    user:  USER, 
-    password: PASSWORD,
-    database: DATABASE
-}
+  host: HOST,
+  user: USER,
+  password: PASSWORD,
+  database: DATABASE,
+};
 
-const db = mysql.createConnection(conStr)
+const db = mysql.createConnection(conStr);
 
 db.connect((err) => {
-    if (err) throw err;
-    console.log('Connected to MySQL database: ${conStr.database}')
-})
+  if (err) throw err;
+  console.log(`Connected to MySQL database: ${conStr.database}`);
+});
+app.use(cors());
+app.listen(port, () => console.log(`Listening on port ${port}`));
 
-app.get('/', (req, res) =>{
-    const sql= 'SELECT * FROM jokes'
-    db.query('SELECT * FROM jokes', (err, jokes) => {
-        if (err){
-            console.log('Database error: ${err.message}')
-        } else {
-            res.send(jokes)
-        }
-    })
-})
-
-app.get('/type', (req, res) =>{
-    const sql= 'SELECT jokes_type FROM jokes'
-    db.query('SELECT jokes_type FROM jokes', (err, jokes) => {
-        if (err){
-            console.log('Database error: ${err.message}')
-        } else {
-            res.send(jokes)
-        }
-    })
-})
-
-app.get('/joke', (req, res) =>{
-    const sql= 'SELECT jokes FROM jokes ORDER BY RAND() LIMIT 1'
-    const type = req.query.type
-    if (type) {
-        sql+="WHERE type = '${type}' "
+app.get("/", (req, res) => {
+  db.query("SELECT * FROM jokes", (err, jokes) => {
+    if (err) {
+      console.log(`Database error: ${err.message}`);
+    } else {
+      res.send(jokes);
     }
+  });
+});
 
-    db.query('SELECT jokes FROM jokes ORDER BY RAND() LIMIT 1', sql, (err, jokes) => {
-        if (err){
-            console.log('Database error: ${err.message}')
-        } else {
-            res.send(jokes)
-        }
-    })
-})
+app.get("/type", (req, res) => {
+  db.query("SELECT type FROM jokesdb.joke_types", (err, jokes) => {
+    if (err) {
+      console.log(`Database error: ${err.message}`);
+    } else {
+      res.json(jokes);
+    }
+  });
+});
+
+app.get("/joke", (req, res) => {
+  let type = req.query.type || "any";
+  let count = req.query.count || 1;
+  let sql;
+
+  if (type === "any") {
+    sql = `SELECT * FROM jokes ORDER BY RAND() LIMIT ${count}`;
+  } else {
+    sql = `SELECT * FROM jokes WHERE type = '${type}' ORDER BY RAND() LIMIT ${count}`;
+  }
+
+  db.query(sql, [type], (err, result) => {
+    if (err) {
+      res.status(500).json({ error: "Internal Server Error" });
+      return;
+    }
+    res.json(result);
+  });
+});
 
 async function getType() {
-    const result = new Promise((resolve, reject) => {
-      const sql = `select type  from jokes`
-      db.query(sql, (err, results) => {
-        if (err) {
-          reject(`Database error: ${err.message}`)
-        } else {
-          resolve(results)
-        }
-      })
-    })
-    return result
-  }
+  const result = new Promise((resolve, reject) => {
+    const sql = `select type  from joke_types`;
+    db.query(sql, (err, results) => {
+      if (err) {
+        reject(`Database error: ${err.message}`);
+      } else {
+        resolve(results);
+      }
+    });
+  });
+  return result;
+}
 
-  async function getJoke() {
-    const result = new Promise((resolve, reject) => {
-      const sql = `select joke  from jokes`
-      db.query(sql, (err, results) => {
-        if (err) {
-          reject(`Database error: ${err.message}`)
-        } else {
-          resolve(results)
-        }
-      })
-    })
-    return result
-  }
-
-app.listen(port, () => console.log('Listening on port ${port}'))
+// console.log(getType())
+async function getJoke() {
+  const result = new Promise((resolve, reject) => {
+    const sql = `select joke from jokes`;
+    db.query(sql, (err, results) => {
+      if (err) {
+        reject(`Database error: ${err.message}`);
+      } else {
+        resolve(results);
+      }
+    });
+  });
+  return result;
+}
